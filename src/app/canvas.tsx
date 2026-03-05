@@ -56,6 +56,7 @@ const Canvas = () => {
     right: 0,
     bottom: 0
   });
+  const [scale, setScale] = useState<{ scaleX: number; scaleY: number }>({ scaleX: 1, scaleY: 1 });
   
   // 选择工具的状态
   const [selection, setSelection] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -79,7 +80,11 @@ const Canvas = () => {
       if (cxt && cxtCache) {
         cxt.translate(0.5, 0.5);
         cxtCache.translate(0.5, 0.5);
-        setStageInfo(canvas.getBoundingClientRect());
+        const rect = canvas.getBoundingClientRect();
+        setStageInfo(rect);
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        setScale({ scaleX, scaleY });
         
         // 保存初始状态
         const imageData = cxt.getImageData(0, 0, canvas.width, canvas.height);
@@ -338,14 +343,16 @@ const Canvas = () => {
     if (!isDrawing || isLocked) return;
     
     // 选择工具模式
-    if (config.shapeType === 'mouse' && selection) {
+    if (config.shapeType === 'mouse') {
       const mousePos = getMousePos(e);
-      setSelection({
-        x: selection.x,
-        y: selection.y,
-        width: mousePos.x - selection.x,
-        height: mousePos.y - selection.y
-      });
+      if (selection) {
+        setSelection({
+          x: selection.x,
+          y: selection.y,
+          width: mousePos.x - selection.x,
+          height: mousePos.y - selection.y
+        });
+      }
       return;
     }
 
@@ -898,14 +905,14 @@ const Canvas = () => {
           onMouseLeave={drawEnd}
         />
         {/* 选择区域高亮 */}
-        {selection && !isDrawing && (
+        {selection && selection.width !== 0 && selection.height !== 0 && (
           <div
-            className="absolute z-20 border-2 border-blue-500 bg-blue-200 bg-opacity-30 pointer-events-none"
+            className="absolute z-20 border-2 border-blue-500 border-dashed bg-transparent pointer-events-none"
             style={{
-              left: Math.min(selection.x, selection.x + selection.width),
-              top: Math.min(selection.y, selection.y + selection.height),
-              width: Math.abs(selection.width),
-              height: Math.abs(selection.height)
+              left: Math.min(selection.x, selection.x + selection.width) / scale.scaleX,
+              top: Math.min(selection.y, selection.y + selection.height) / scale.scaleY,
+              width: Math.abs(selection.width) / scale.scaleX,
+              height: Math.abs(selection.height) / scale.scaleY
             }}
           />
         )}
