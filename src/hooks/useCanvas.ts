@@ -46,6 +46,11 @@ interface Path {
   endY: number;
 }
 
+interface CanvasAction {
+  type: string;
+  data: any;
+}
+
 export const useCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasCacheRef = useRef<HTMLCanvasElement>(null);
@@ -646,6 +651,133 @@ export const useCanvas = () => {
       }
     }
   }, []);
+
+  // 处理远程画布操作
+  const handleRemoteCanvasAction = useCallback((action: CanvasAction) => {
+    const canvas = canvasRef.current;
+    const canvasCache = canvasCacheRef.current;
+    if (!canvas || !canvasCache) return;
+
+    const cxt = canvas.getContext('2d');
+    const cxtCache = canvasCache.getContext('2d');
+    if (!cxt || !cxtCache) return;
+
+    switch (action.type) {
+      case 'drawGraffiti': {
+        const { points, color, lineWidth, lineCap, lineJoin } = action.data;
+        cxt.save();
+        cxt.beginPath();
+        cxt.strokeStyle = color;
+        cxt.lineWidth = lineWidth;
+        cxt.lineCap = lineCap;
+        cxt.lineJoin = lineJoin;
+
+        if (points.length <= 4) {
+          cxt.moveTo(points[0].x, points[0].y);
+          for (let i = 1; i < points.length; i++) {
+            cxt.lineTo(points[i].x, points[i].y);
+          }
+          cxt.stroke();
+        } else {
+          cxt.moveTo(points[0].x, points[0].y);
+          for (let i = 1; i < points.length - 2; i++) {
+            const xc = (points[i + 1].x + points[i].x) / 2;
+            const yc = (points[i + 1].y + points[i].y) / 2;
+            cxt.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+          }
+          cxt.quadraticCurveTo(
+            points[points.length - 2].x,
+            points[points.length - 2].y,
+            points[points.length - 1].x,
+            points[points.length - 1].y
+          );
+          cxt.stroke();
+        }
+        cxt.restore();
+        break;
+      }
+      case 'drawLine': {
+        const { beginX, beginY, endX, endY, color, lineWidth, lineCap, lineJoin } = action.data;
+        cxt.save();
+        cxt.strokeStyle = color;
+        cxt.lineWidth = lineWidth;
+        cxt.lineCap = lineCap;
+        cxt.lineJoin = lineJoin;
+        cxt.beginPath();
+        cxt.moveTo(beginX, beginY);
+        cxt.lineTo(endX, endY);
+        cxt.stroke();
+        cxt.restore();
+        break;
+      }
+      case 'drawRect': {
+        const { isFill, beginX, beginY, endX, endY, color, lineWidth } = action.data;
+        const width = Math.abs(endX - beginX);
+        const height = Math.abs(endY - beginY);
+        const left = endX > beginX ? beginX : endX;
+        const top = endY > beginY ? beginY : endY;
+
+        cxt.save();
+        cxt.strokeStyle = color;
+        cxt.fillStyle = color;
+        cxt.lineWidth = lineWidth;
+        if (isFill) {
+          cxt.fillRect(left, top, width, height);
+        } else {
+          cxt.strokeRect(left, top, width, height);
+        }
+        cxt.restore();
+        break;
+      }
+      case 'drawEllipse': {
+        const { x, y, a, b, isFill, color, lineWidth } = action.data;
+        cxt.save();
+        const r = a > b ? a : b;
+        const ratioX = a / r;
+        const ratioY = b / r;
+        cxt.scale(ratioX, ratioY);
+        cxt.beginPath();
+        cxt.arc(x / ratioX, y / ratioY, r, 0, 2 * Math.PI, false);
+        cxt.closePath();
+        if (isFill) {
+          cxt.fillStyle = color;
+          cxt.fill();
+        } else {
+          cxt.strokeStyle = color;
+          cxt.lineWidth = lineWidth;
+          cxt.stroke();
+        }
+        cxt.restore();
+        break;
+      }
+      case 'drawText': {
+        const { text, left, top, font, color } = action.data;
+        cxt.save();
+        cxt.font = font;
+        cxt.fillStyle = color;
+        cxt.textBaseline = 'top';
+        cxt.fillText(text, left, top);
+        cxt.restore();
+        break;
+      }
+      case 'clear': {
+        cxt.clearRect(0, 0, canvas.width, canvas.height);
+        break;
+      }
+    }
+  }, []);
+
+  // 监听远程画布操作
+  useEffect(() => {
+    const handleAction = (event: CustomEvent<CanvasAction>) => {
+      handleRemoteCanvasAction(event.detail);
+    };
+
+    window.addEventListener('canvasAction' as any, handleAction as any);
+    return () => {
+      window.removeEventListener('canvasAction' as any, handleAction as any);
+    };
+  }, [handleRemoteCanvasAction]);
 
   return {
     canvasRef,

@@ -1,34 +1,216 @@
 'use client';
 
 import { useCanvas } from '@/hooks/useCanvas';
+import { useChatRoom } from '@/hooks/useChatRoom';
+import ChatRoom from '@/components/ChatRoom';
+import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 const Canvas = () => {
+  const [roomFromUrl, setRoomFromUrl] = useState('');
+  
+  // 读取 URL 参数
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room') || '';
+    setRoomFromUrl(room);
+  }, []);
+  
   const {
-    canvasRef,
-    canvasCacheRef,
-    textFakerRef,
-    config,
-    scale,
-    selection,
-    drawHistory,
-    historyIndex,
-    isLocked,
-    isFullscreen,
-    undo,
-    redo,
-    clearAll,
-    drawBegin,
-    drawing,
-    drawEnd,
-    handleTextBlur,
-    handleToolChange,
-    handleColorChange,
-    handleLineWidthLevel,
-    handleFontSizeLevel,
-    handleEraserSizeLevel,
-    toggleLock,
-    toggleFullscreen,
-  } = useCanvas();
+      canvasRef,
+      canvasCacheRef,
+      textFakerRef,
+      config,
+      scale,
+      selection,
+      drawHistory,
+      historyIndex,
+      isLocked,
+      isFullscreen,
+      coordinate,
+      path,
+      undo,
+      redo,
+      clearAll,
+      drawBegin,
+      drawing,
+      drawEnd,
+      handleTextBlur,
+      handleToolChange,
+      handleColorChange,
+      handleLineWidthLevel,
+      handleFontSizeLevel,
+      handleEraserSizeLevel,
+      toggleLock,
+      toggleFullscreen
+    } = useCanvas();
+  
+    const {
+      roomId,
+      userId,
+      isConnected,
+      sendCanvasAction,
+      initCanvas,
+    } = useChatRoom({ roomId: roomFromUrl });
+    
+    console.log('Canvas - roomFromUrl:', roomFromUrl, 'isConnected:', isConnected);
+
+  // 监听远程画布操作
+  useEffect(() => {
+    if (!isConnected) {
+      console.log('Not connected, skipping socket listener setup');
+      return;
+    }
+
+    const handleSocketCanvasAction = (action: any) => {
+      console.log('Received canvasAction from socket:', action.type);
+      // 触发自定义事件，让 useCanvas 处理
+      window.dispatchEvent(new CustomEvent('canvasAction', { detail: action }));
+    };
+
+    const socket = (window as any).socket;
+    if (socket) {
+      socket.on('canvasAction', handleSocketCanvasAction);
+      console.log('Socket listener for canvasAction registered');
+    }
+
+    return () => {
+      if (socket) {
+        socket.off('canvasAction', handleSocketCanvasAction);
+        console.log('Socket listener for canvasAction removed');
+      }
+    };
+  }, [isConnected]);
+
+  // 发送画布操作 - 铅笔
+  const sendGraffitiAction = useCallback((points: any[], color: string, lineWidth: number, lineCap: string, lineJoin: string) => {
+    console.log('sendGraffitiAction called, isConnected:', isConnected);
+    if (isConnected) {
+      sendCanvasAction({
+        type: 'drawGraffiti',
+        data: { points, color, lineWidth, lineCap, lineJoin }
+      });
+    }
+  }, [isConnected, sendCanvasAction]);
+
+  // 发送画布操作 - 直线
+  const sendLineAction = useCallback((beginX: number, beginY: number, endX: number, endY: number, color: string, lineWidth: number, lineCap: string, lineJoin: string) => {
+    if (isConnected) {
+      sendCanvasAction({
+        type: 'drawLine',
+        data: { beginX, beginY, endX, endY, color, lineWidth, lineCap, lineJoin }
+      });
+    }
+  }, [isConnected, sendCanvasAction]);
+
+  // 发送画布操作 - 矩形
+  const sendRectAction = useCallback((isFill: boolean, beginX: number, beginY: number, endX: number, endY: number, color: string, lineWidth: number) => {
+    if (isConnected) {
+      sendCanvasAction({
+        type: 'drawRect',
+        data: { isFill, beginX, beginY, endX, endY, color, lineWidth }
+      });
+    }
+  }, [isConnected, sendCanvasAction]);
+
+  // 发送画布操作 - 椭圆
+  const sendEllipseAction = useCallback((x: number, y: number, a: number, b: number, isFill: boolean, color: string, lineWidth: number) => {
+    if (isConnected) {
+      sendCanvasAction({
+        type: 'drawEllipse',
+        data: { x, y, a, b, isFill, color, lineWidth }
+      });
+    }
+  }, [isConnected, sendCanvasAction]);
+
+  // 发送画布操作 - 文字
+  const sendTextAction = useCallback((text: string, left: number, top: number, font: string, color: string) => {
+    if (isConnected) {
+      sendCanvasAction({
+        type: 'drawText',
+        data: { text, left, top, font, color }
+      });
+    }
+  }, [isConnected, sendCanvasAction]);
+
+  // 处理绘制结束 - 发送画布操作（只在 mouseup 时同步一次）
+  const handleDrawEnd = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // 先执行绘制
+    drawEnd(e);
+    
+    // 然后发送画布操作（如果已连接）
+    if (isConnected) {
+      const mousePos = { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY };
+      
+      switch (config.shapeType) {
+        case 'pencil':
+          // 发送完整的轨迹数据
+          sendGraffitiAction(
+            coordinate,
+            config.color,
+            config.lineWidth,
+            config.lineCap,
+            config.lineJoin
+          );
+          break;
+        case 'line':
+          sendLineAction(
+            path.beginX,
+            path.beginY,
+            mousePos.x,
+            mousePos.y,
+            config.color,
+            config.lineWidth,
+            config.lineCap,
+            config.lineJoin
+          );
+          break;
+        case 'emptyrect':
+        case 'fillrect':
+          sendRectAction(
+            config.shapeType === 'fillrect',
+            path.beginX,
+            path.beginY,
+            mousePos.x,
+            mousePos.y,
+            config.color,
+            config.lineWidth
+          );
+          break;
+        case 'emptyellipse':
+        case 'fillellipse':
+          const a = (mousePos.x - path.beginX) / 2;
+          const b = (mousePos.y - path.beginY) / 2;
+          const x = path.beginX + a;
+          const y = path.beginY + b;
+          sendEllipseAction(
+            x,
+            y,
+            Math.abs(a),
+            Math.abs(b),
+            config.shapeType === 'fillellipse',
+            config.color,
+            config.lineWidth
+          );
+          break;
+        case 'text':
+          if (coordinate.length >= 2) {
+            const x1 = coordinate[0].x;
+            const y1 = coordinate[0].y;
+            const x2 = mousePos.x;
+            const y2 = mousePos.y;
+            sendTextAction(
+              '示例文字',
+              x1 < x2 ? x1 : x2,
+              y1 < y2 ? y1 : y2,
+              config.font,
+              config.color
+            );
+          }
+          break;
+      }
+    }
+  }, [drawEnd, isConnected, config, sendGraffitiAction, sendRectAction, sendEllipseAction, sendTextAction]);
 
   const presetColors = [
     { name: '黑色', value: '#000000' },
@@ -297,8 +479,8 @@ const Canvas = () => {
           }`}
           onMouseDown={drawBegin}
           onMouseMove={drawing}
-          onMouseUp={drawEnd}
-          onMouseLeave={drawEnd}
+          onMouseUp={handleDrawEnd}
+          onMouseLeave={handleDrawEnd}
         />
         {/* 选择区域高亮 */}
         {selection && selection.width !== 0 && selection.height !== 0 && (
@@ -318,9 +500,12 @@ const Canvas = () => {
           onBlur={handleTextBlur}
           style={{ display: 'none' }}
         />
+</div>
+
+        {/* 聊天室组件 */}
+        {roomId && <ChatRoom />}
       </div>
-    </div>
-  );
+    );
 };
 
 export default Canvas;
