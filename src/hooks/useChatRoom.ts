@@ -84,16 +84,16 @@ export const useChatRoom = ({ roomId: initialRoomId, userId: initialUserId }: Ch
     });
 
     newSocket.on('connect', () => {
-      console.log('Socket connected, setting isConnected to true');
+      console.log('✅ Socket connected for roomId:', roomId, ', setting isConnected to true');
       setIsConnected(true);
     });
 
     newSocket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error.message);
+      console.error('❌ Socket connection error for roomId:', roomId, '-', error.message);
     });
 
     newSocket.on('disconnect', (reason) => {
-      console.log('Socket disconnected, reason:', reason);
+      console.log('⚠️ Socket disconnected for roomId:', roomId, ', reason:', reason);
       setIsConnected(false);
     });
 
