@@ -1,19 +1,14 @@
 import { Server as NetServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { NextApiRequest } from 'next';
+import { NextApiResponse } from 'next';
 
-export type NextApiResponseServerIO = {
+export type NextApiResponseServerIO = NextApiResponse & {
   socket: {
     server: NetServer & {
       io: SocketIOServer;
     };
   };
-};
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
 };
 
 interface SocketData {
@@ -105,7 +100,8 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseServerIO) => {
       });
     });
   } else {
-    res.end();
+    // 返回 405 Method Not Allowed
+    res.status(405).json({ error: 'Method not allowed' });
   }
 };
 

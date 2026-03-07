@@ -138,20 +138,22 @@ const Canvas = () => {
     // 先执行绘制
     drawEnd(e);
     
-    // 然后发送画布操作（如果已连接）
-    if (isConnected) {
+    // 然后发送画布操作（如果已连接，并且确实有绘制操作）
+    if (isConnected && config.shapeType !== 'mouse') {
       const mousePos = { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY };
       
       switch (config.shapeType) {
         case 'pencil':
-          // 发送完整的轨迹数据
-          sendGraffitiAction(
-            coordinate,
-            config.color,
-            config.lineWidth,
-            config.lineCap,
-            config.lineJoin
-          );
+          // 发送完整的轨迹数据（只有在有轨迹时才发送）
+          if (coordinate && coordinate.length > 0) {
+            sendGraffitiAction(
+              coordinate,
+              config.color,
+              config.lineWidth,
+              config.lineCap,
+              config.lineJoin
+            );
+          }
           break;
         case 'line':
           sendLineAction(
@@ -179,19 +181,22 @@ const Canvas = () => {
           break;
         case 'emptyellipse':
         case 'fillellipse':
-          const a = (mousePos.x - path.beginX) / 2;
-          const b = (mousePos.y - path.beginY) / 2;
-          const x = path.beginX + a;
-          const y = path.beginY + b;
-          sendEllipseAction(
-            x,
-            y,
-            Math.abs(a),
-            Math.abs(b),
-            config.shapeType === 'fillellipse',
-            config.color,
-            config.lineWidth
-          );
+          // 只有在有有效的起点时才发送椭圆数据
+          if (path.beginX !== undefined && path.beginY !== undefined) {
+            const a = (mousePos.x - path.beginX) / 2;
+            const b = (mousePos.y - path.beginY) / 2;
+            const x = path.beginX + a;
+            const y = path.beginY + b;
+            sendEllipseAction(
+              x,
+              y,
+              Math.abs(a),
+              Math.abs(b),
+              config.shapeType === 'fillellipse',
+              config.color,
+              config.lineWidth
+            );
+          }
           break;
         case 'text':
           if (coordinate.length >= 2) {
@@ -210,7 +215,7 @@ const Canvas = () => {
           break;
       }
     }
-  }, [drawEnd, isConnected, config, sendGraffitiAction, sendRectAction, sendEllipseAction, sendTextAction]);
+  }, [drawEnd, isConnected, config.shapeType, coordinate, path, sendGraffitiAction, sendLineAction, sendRectAction, sendEllipseAction, sendTextAction]);
 
   const presetColors = [
     { name: '黑色', value: '#000000' },
@@ -480,7 +485,6 @@ const Canvas = () => {
           onMouseDown={drawBegin}
           onMouseMove={drawing}
           onMouseUp={handleDrawEnd}
-          onMouseLeave={handleDrawEnd}
         />
         {/* 选择区域高亮 */}
         {selection && selection.width !== 0 && selection.height !== 0 && (

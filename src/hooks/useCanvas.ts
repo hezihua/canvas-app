@@ -665,6 +665,13 @@ export const useCanvas = () => {
     switch (action.type) {
       case 'drawGraffiti': {
         const { points, color, lineWidth, lineCap, lineJoin } = action.data;
+        
+        // 防御性检查：points 不能为空
+        if (!points || points.length === 0) {
+          console.warn('Received empty points array for drawGraffiti');
+          return;
+        }
+        
         cxt.save();
         cxt.beginPath();
         cxt.strokeStyle = color;
