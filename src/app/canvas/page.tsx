@@ -4,17 +4,11 @@ import { useCanvas } from '@/hooks/useCanvas';
 import { useChatRoom } from '@/hooks/useChatRoom';
 import ChatRoom from '@/components/ChatRoom';
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const Canvas = () => {
-  const [roomFromUrl, setRoomFromUrl] = useState('');
-  
-  // 读取 URL 参数
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const room = params.get('room') || '';
-    setRoomFromUrl(room);
-  }, []);
+  const searchParams = useSearchParams();
+  const roomFromUrl = searchParams.get('room') || '';
   
   const {
       canvasRef,

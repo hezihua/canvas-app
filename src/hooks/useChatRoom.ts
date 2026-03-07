@@ -23,6 +23,14 @@ export const useChatRoom = ({ roomId: initialRoomId, userId: initialUserId }: Ch
   const [canvasHistory, setCanvasHistory] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 当 initialRoomId 变化时，更新 roomId
+  useEffect(() => {
+    if (initialRoomId && initialRoomId !== roomId) {
+      console.log('initialRoomId changed, updating roomId:', initialRoomId);
+      setRoomId(initialRoomId);
+    }
+  }, [initialRoomId, roomId]);
+
   // 同步 roomId props 到 state
   useEffect(() => {
     if (initialRoomId && initialRoomId !== roomId) {
@@ -54,8 +62,18 @@ export const useChatRoom = ({ roomId: initialRoomId, userId: initialUserId }: Ch
     
     console.log('Creating new socket connection for roomId:', roomId);
     
-    // 连接到 Socket.io 服务器 - 生产环境使用环境变量
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+    // 连接到 Socket.io 服务器
+    // 本地开发使用 localhost:3001，生产环境使用环境变量或同域
+    let socketUrl: string;
+    
+    if (process.env.NODE_ENV === 'development') {
+      socketUrl = 'http://localhost:3001';
+    } else {
+      // 生产环境：优先使用环境变量，否则使用同域
+      socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
+    }
+    
+    console.log('Connecting to Socket.io server:', socketUrl, '(env:', process.env.NODE_ENV + ')');
     
     const newSocket = io(socketUrl, {
       path: '/api/socket',
