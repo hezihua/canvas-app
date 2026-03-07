@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 // 提取使用 useSearchParams 的子组件
 function CanvasContent() {
   const searchParams = useSearchParams();
-  const roomFromUrl = searchParams.get('room') || '';
+  const roomFromUrl = searchParams?.get('room') || '';
   
   const {
       canvasRef,
