@@ -46,7 +46,7 @@ interface Path {
   endY: number;
 }
 
-interface CanvasAction {
+export interface CanvasAction {
   type: string;
   data: any;
 }
