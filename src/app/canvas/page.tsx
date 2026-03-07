@@ -3,10 +3,11 @@
 import { useCanvas } from '@/hooks/useCanvas';
 import { useChatRoom } from '@/hooks/useChatRoom';
 import ChatRoom from '@/components/ChatRoom';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-const Canvas = () => {
+// 提取使用 useSearchParams 的子组件
+function CanvasContent() {
   const searchParams = useSearchParams();
   const roomFromUrl = searchParams.get('room') || '';
   
@@ -506,4 +507,11 @@ const Canvas = () => {
     );
 };
 
-export default Canvas;
+// 主组件，用 Suspense 包裹
+export default function CanvasPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">加载中...</div>}>
+      <CanvasContent />
+    </Suspense>
+  );
+}
