@@ -38,7 +38,7 @@ export default function handler(req: NextApiRequest, res: any) {
     res.socket.server.io = io;
 
     io.on('connection', async (socket) => {
-      const { roomId, userId } = socket.handshake.query as SocketData;
+      const { roomId, userId } = socket.handshake.query as unknown as SocketData;
 
       if (!roomId || !userId) {
         socket.disconnect();
